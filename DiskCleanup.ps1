@@ -1,9 +1,11 @@
 $StartDiskFree = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'" | Foreach-Object {$_.FreeSpace}
 
 #Clear Recycle Bin
-Remove-Item 'C:\$RecycleBin\*' -Recurse -WhatIf
+Remove-Item 'C:\$RecycleBin\*' -Recurse -Verbose -ErrorAction SilentlyContinue
 
-Remove-Item 'C:\Windows\Installer\*' -Recurse
+Remove-Item 'C:\Windows\Installer\*' -Recurse -Verbose -ErrorAction SilentlyContinue
+
+
 
 #$EndDiskFree = "15299767808"
 $EndDiskFree = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'" | Foreach-Object {$_.FreeSpace}
