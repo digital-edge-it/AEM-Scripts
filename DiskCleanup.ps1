@@ -7,9 +7,6 @@ function Clean
 #Main
 $StartDiskFree = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='C:'" | Foreach-Object {$_.FreeSpace}
 
-#Clear Windows Installer Directory
-Clean 'C:\Windows\Installer\*'
-
 #Clear Windows Temp Folder
 Clean 'C:\Windows\temp\*'
 
