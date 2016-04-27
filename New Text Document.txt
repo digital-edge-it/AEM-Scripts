@@ -1,0 +1,219 @@
+#NoTrayIcon
+#Region ;**** Directives created by AutoIt3Wrapper_GUI ****
+#AutoIt3Wrapper_icon=ClnMgr.ico
+#AutoIt3Wrapper_outfile=..\DiskCleanup.exe
+#AutoIt3Wrapper_Compression=4
+#AutoIt3Wrapper_Res_Description=Automated and Silent execution of the Windows Disk Cleanup utility.
+#AutoIt3Wrapper_Res_Fileversion=1.0.0.14
+#AutoIt3Wrapper_Res_Fileversion_AutoIncrement=y
+#AutoIt3Wrapper_Res_SaveSource=y
+#AutoIt3Wrapper_Res_Field=.Active Setup Temp Folders|Enabled
+#AutoIt3Wrapper_Res_Field=.Compress old files|Enabled
+#AutoIt3Wrapper_Res_Field=.Content Indexer Cleaner|Enabled
+#AutoIt3Wrapper_Res_Field=.Downloaded Program Files|Disabled
+#AutoIt3Wrapper_Res_Field=.Internet Cache Files|Enabled
+#AutoIt3Wrapper_Res_Field=.Memory Dump Files|Enabled
+#AutoIt3Wrapper_Res_Field=.Old ChkDsk Files|Enabled
+#AutoIt3Wrapper_Res_Field=.Recycle Bin|Disabled
+#AutoIt3Wrapper_Res_Field=.Remote Desktop Cache Files|Enabled
+#AutoIt3Wrapper_Res_Field=.Setup Log Files|Enabled
+#AutoIt3Wrapper_Res_Field=.Temporary Files|Enabled
+#AutoIt3Wrapper_Res_Field=.WebClient and WebPublisher Cache|Enabled
+#EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
+#Include <File.au3>
+#include <String.au3>
+#Include <Misc.au3>
+_Singleton("Global\CleanDisk", 2)
+
+
+;## CleanMgr
+
+Dim Const $RegPath    = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\"
+Dim Const $StateFlag    = "StateFlags0064"
+Dim Const $REGDWORD  = "REG_DWORD"
+
+Dim Const $Process    = "CleanMgr.exe"
+Dim Const $RunCmd      = $Process & " /sagerun:65"
+Dim Const $WindTitle    = "Disk Cleanup"
+Dim Const $LogPath    = "C:\SetupLogs\DiskClean.log"
+
+Dim Const $Enabled    = 2
+Dim Const $Disabled  = 0
+
+Global $Status[3]
+
+_FileWriteLog($LogPath, " ********* Start Disk Cleanup *********")
+
+If ProcessExists($Process) Then
+    _FileWriteLog($LogPath, "Utility is allready running.")
+    _FileWriteLog($LogPath, "Operation Interupted RC=514")
+    _FileWriteLog($LogPath, " ********* End HRA-O Disk Cleanup *********" & @CRLF & _StringRepeat("*", 80))
+    Exit 514
+EndIf
+
+_FileWriteLog($LogPath, "Adding Registry entries to automate CleanMgr.exe")
+
+AddHandler_FireFox();   <== Add FireFox Support
+
+RegWrite($RegPath & "Active Setup Temp Folders"         , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Compress old files"                , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Content Indexer Cleaner"           , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Downloaded Program Files"          , $StateFlag, $REGDWORD, $Disabled)
+RegWrite($RegPath & "Internet Cache Files"              , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Memory Dump Files"                 , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Old ChkDsk Files"                  , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Recycle Bin"                       , $StateFlag, $REGDWORD, $Disabled)
+RegWrite($RegPath & "Remote Desktop Cache Files"        , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Setup Log Files"                   , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "Temporary Files"                   , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "WebClient and WebPublisher Cache"  , $StateFlag, $REGDWORD, $Enabled)
+RegWrite($RegPath & "FireFox Cache"                     , $StateFlag, $REGDWORD, $Enabled)
+
+Dim $Drives = DriveGetDrive("FIXED")
+
+For $i = 1 to $Drives[0]
+    _FileWriteLog($LogPath, "Free Drive Space on Drive " & StringUpper($Drives[$i]) & " = " & DriveSpaceFree( $Drives[$i] & "\" ) & " MB")
+Next
+
+_FileWriteLog($LogPath, "Executing Disk Cleanup Utility")
+
+Local $PID = Run($RunCmd, "", @SW_HIDE)
+ProcessSetPriority($Process, 1)
+
+_FileWriteLog($LogPath, "Disk Cleanup Utility PID=" & $PID)
+
+AdlibEnable("_WindowSearch", 10)
+    While ProcessExists($Process)
+        Sleep(1000)
+    WEnd
+AdlibDisable()
+
+_FileWriteLog($LogPath, "Disk Cleanup Utility operation completed")
+
+For $i = 1 to $Drives[0]
+    _FileWriteLog($LogPath, "Free Drive Space on Drive " & StringUpper($Drives[$i]) & " = " & DriveSpaceFree( $Drives[$i] & "\" ) & " MB")
+Next
+
+_FileWriteLog($LogPath, "Operation Completed RC=512" )
+_FileWriteLog($LogPath, " ********* End Disk Cleanup *********" & @CRLF & _StringRepeat("*", 80))
+Exit 512
+
+Func _WindowSearch()
+    Local $TempText = WinGetText($WindTitle)
+    If WinExists($WindTitle) Then
+        Local $Data
+       
+        If Bitand(WinGetState($WindTitle), 2) Then
+            WinSetState($WindTitle, "", @SW_HIDE)
+        EndIf
+       
+        $Data = ControlGetText($WindTitle, "", "[CLASSNN:Static2]")
+        If $Data <> "" Then
+            If $Data <> $Status[0] Then
+                $Status[0] = $Data
+                _FileWriteLog($LogPath, "Status: " & $Data)
+            EndIf
+        EndIf
+       
+        $Data = ControlGetText($WindTitle, "", "[CLASSNN:Static3]")
+        If $Data <> "" Then
+            If $Data <> $Status[1] Then
+                $Status[1] = $Data
+                _FileWriteLog($LogPath, "Status: " & @TAB & $Data)
+            EndIf
+        EndIf
+       
+        $Data = ControlGetText($WindTitle, "", "[CLASSNN:Static4]")
+        If $Data <> "" Then
+            If $Data <> $Status[2] Then
+                $Status[2] = $Data
+                _FileWriteLog($LogPath, "Status: " & @TAB & @TAB & $Data)
+            EndIf
+        EndIf
+    EndIf
+   
+    If WinExists("Recycle Bin", " is corrupted. Do") Then
+        ControlClick("Recycle Bin", " is corrupted. Do", 6)
+    EndIf
+EndFunc
+
+Func AddHandler_FireFox()
+    Local Const $KeyPath            = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\FireFox Cache"
+    Local Const $Default            = "{C0E13E61-0CC6-11d1-BBB6-0060978B2AE6}"
+    Local Const $Display            = "FireFox Cache"
+    Local Const $Description        = "Cleans the firefox cache (FIREFOX MUST BE CLOSED)"
+    Local Const $FileList           = "*.*"
+    Local Const $CSIDL              = 0x1C
+    Local Const $StateFlags0064     = 0x2
+    Local Const $StateFlags         = 0x1
+    Local Const $IconPath           = "%ProgramFiles%\Mozilla Firefox\firefox.exe,2"
+    Local Const $LastAccess         = 0x0
+    Local Const $DWORD              = "REG_DWORD"
+    Local Const $EXPANDSZ           = "REG_EXPAND_SZ"
+    Local Const $SZ                 = "REG_SZ"
+   
+    ;## Get the Path to the Firefox Cache folder
+        Local $Folder = GetSpecialFolder(0x1C) & "\Mozilla\Firefox\Profiles\"
+        Local $Search = FileFindFirstFile($Folder & "*.default")
+       
+        $Folder = "Mozilla\Firefox\Profiles\" & FileFindNextFile($Search) & "\Cache"
+   
+    ;## Add new Disk Cleanup Handler to the registry
+        RegWrite($KeyPath, "",              $SZ,        $Default)
+        RegWrite($KeyPath, "CSIDL",         $DWORD,     $CSIDL)
+        RegWrite($KeyPath, "Display",       $SZ,        $Display)
+        RegWrite($KeyPath, "Description",   $SZ,        $Description)
+        RegWrite($KeyPath, "FileList",      $SZ,        $FileList)
+        RegWrite($KeyPath, "Folder",        $SZ,        $Folder)
+        RegWrite($KeyPath, "IconPath",      $EXPANDSZ,  $IconPath)
+        RegWrite($KeyPath, "LastAccess",    $DWORD,     $LastAccess)
+        RegWrite($KeyPath, "StateFlags",    $DWORD,     $StateFlags)
+EndFunc
+
+Func GetSpecialFolder($CSIDL)
+
+    Local $Path = DllStructCreate("char Path[" & 0x104 & "]")
+    Local $Dll = DllOpen("Shell32.dll")
+   
+    $result = DllCall($Dll, "int", "SHGetSpecialFolderPath", "hwnd", 0, "ptr", DllStructGetPtr($Path), "Long", $CSIDL, "int", 0)
+   
+    #cs http://msdn.microsoft.com/en-us/library/bb762204(VS.85).aspx
+        SHGetSpecialFolderPath Function
+
+        Retrieves the path of a special folder, identified by its CSIDL.
+
+        Syntax
+
+            BOOL SHGetSpecialFolderPath(     
+                HWND hwndOwner,
+                LPTSTR lpszPath,
+                int csidl,
+                BOOL fCreate
+            );
+
+        Parameters
+
+            hwndOwner
+                Reserved.
+            lpszPath
+                [out] A pointer to a null-terminated string that receives the drive and path of the specified folder. This buffer must be at least MAX_PATH characters in size.
+            csidl
+                [in] A CSIDL that identifies the folder of interest. If a virtual folder is specified, this function will fail.
+            fCreate
+                [in] Indicates whether the folder should be created if it does not already exist. If this value is nonzero, the folder will be created. If this value is zero, the folder will not be created.
+
+        Return Value
+
+            TRUE if successful; otherwise, FALSE.
+
+        Remarks
+
+            The Microsoft Internet Explorer 4.0 Desktop Update must be installed for this function to be available.
+            With Microsoft Windows 2000, this function is superseded by ShGetFolderPath. You can use this function on earlier systems by including the redistributable DLL, ShFolder.dll.
+    #ce
+   
+    DllClose($Dll)
+
+    If $result[0] = True Then Return DllStructGetData($Path, "Path")
+   
+EndFunc
